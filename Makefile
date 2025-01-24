@@ -3,6 +3,8 @@ PHASED_HGDP_GVCF_PATHS='gs://gcp-public-data--gnomad/resources/hgdp_1kg/phased_h
 bcftools?=~/bcftools/bin/bcftools
 samtools?=~/samtools/bin/samtools
 
+VERSION=1.0
+
 # requires `uv`
 .PHONY: sync
 sync:
@@ -90,7 +92,7 @@ generate-divref:
 		--gnomad-va-file ./data/gnomad/$(gnomad_af_base) \
 		--reference-fasta ./data/reference/Homo_sapiens_assembly38.fasta.gz \
 		--window-size 25 \
-		--output-base ./data/divref/DivRef
+		--output-base ./data/divref/DivRef-v$(VERSION)
 	rm ./data/divref/.*.crc
 
 .PHONY: generate-merged-divref
@@ -104,18 +106,18 @@ generate-merged-divref:
 		--gnomad-va-file ./data/gnomad/$(gnomad_af_base) \
 		--reference-fasta ./data/reference/Homo_sapiens_assembly38.fasta.gz \
 		--window-size 25 \
-		--output-base ./data/divref-merged/DivRef \
+		--output-base ./data/divref-merged/DivRef-v$(VERSION) \
 		--merge --split-contigs
 	rm ./data/divref-merged/.*.crc
 
 .PHONY: index-fasta
 index-fasta:
 	$(samtools) dict \
-		./data/divref/DivRef.haplotypes.fasta \
-		-o ./data/divref/DivRef.haplotypes.fasta.dict \
+		./data/divref/DivRef-v$(VERSION).haplotypes.fasta \
+		-o ./data/divref/DivRef-v$(VERSION).haplotypes.fasta.dict \
 		-u '.'
 	$(samtools) faidx \
-		./data/divref/DivRef.haplotypes.fasta
+		./data/divref/DivRef-v$(VERSION).haplotypes.fasta
 
 .PHONY: index-fastas
 index-fastas:
@@ -125,11 +127,11 @@ index-fastas:
 .PHONY: index-merged-fasta
 index-merged-fasta:
 	$(samtools) dict \
-		./data/divref/DivRef.haplotypes_gnomad_merge.fasta \
-		-o ./data/divref/DivRef.haplotypes_gnomad_merge.fasta.dict \
+		./data/divref/DivRef-v$(VERSION).haplotypes_gnomad_merge.fasta \
+		-o ./data/divref/DivRef-v$(VERSION).haplotypes_gnomad_merge.fasta.dict \
 		-u '.'
 	$(samtools) faidx \
-		./data/divref/DivRef.haplotypes_gnomad_merge.fasta
+		./data/divref/DivRef-v$(VERSION).haplotypes_gnomad_merge.fasta
 
 
 .PHONY: create-gnomad-sites-vcf

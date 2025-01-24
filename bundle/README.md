@@ -1,5 +1,7 @@
 # Human diversity reference (DivRef) bundle
 
+**Version 1.0, 2025-01-24**
+
 This resource bundle contains a custom human diversity reference (DivRef) composed of short base sequences around common variation in the
 human population, with a tool for remapping coordinates from this custom reference back to GRCh38.
 
