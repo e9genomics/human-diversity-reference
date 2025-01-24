@@ -1,0 +1,25 @@
+[project]
+name = "divref"
+version = "1.0"
+description = "Utilities for working with the human diversity reference genome (DivRef) for genome editing off-target prediction"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "duckdb>=1.1.3",
+    "intervaltree>=3.1.0",
+    "numpy>=1.26.4",
+    "polars[pyarrow]>=1.16.0",
+    "pydantic>=2.10.3",
+    "tqdm>=4.67.1",
+]
+
+[dependency-groups]
+dev = [
+    "google-cloud-run>=0.10.14",
+    "google-cloud-storage>=2.14.0",
+    "setuptools>=75.6.0",
+    "google-cloud-batch>=0.17.32",
+    "google-cloud>=0.34.0",
+    "hail>=0.2.133",
+    "pytest>=8.3.4",
+]

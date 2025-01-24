@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+title: "Human diversity reference (DivRef) bundle"
+abstract: "A custom human genome reference composed of short base sequences around common variation in the human population, with a tool for remapping coordinates back to GRCh38."
+type: dataset
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.14733921
+authors:
+  - family-names: Poterba
+    given-names: Tim
+    email: tpoterba@e9genomics.com
+    affiliation: E9 Genomics
+  - family-names: Watkins
+    given-names: James
+    email: jwatkins@e9genomics.com
+    affiliation: E9 Genomics
+  - family-names: Grace
+    given-names: Tiao
+    email: gtiao@e9genomics.com
+    affiliation: E9 Genomics
+repository-code: "https://github.com/e9genomics/human-diversity-reference"
+repository: "https://github.com/e9genomics/human-diversity-reference"
+keywords:
+  - genomics
+  - human diversity
+  - genome editing
+  - off-target analysis
+  - bioinformatics
+license:
+  - MIT
+  - CC-BY-4.0
+version: 1.0
+date-released: "2024-01-24"
