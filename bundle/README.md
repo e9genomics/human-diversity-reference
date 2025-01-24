@@ -42,7 +42,7 @@ This bundle includes:
 The software (scripts, etc.) in this project is MIT-licensed with no restrictions on either commercial or non-commercial usage.
 The data resources are licensed under Creative Commons CC BY 4.0, which permits either commercial or non-commercial usage, but requires attribution to E9 Genomics and this resource in redistributions.
 
-For the full license terms, see the license files in the bundle directory or [GitHub repository]().
+For the full license terms, see the license files in the bundle directory or [GitHub repository](https://github.com/e9genomics/human-diversity-reference).
 
 ## Dependencies
 
