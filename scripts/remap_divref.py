@@ -182,7 +182,7 @@ def get_index_path(path: Optional[Path]):
     return conn
 
 
-@app.command(name='calitas')
+@app.command(name='calitas', help="Remap DivRef coordinates to reference genome coordinates for CALITAS output files")
 def calitas(
         input_path: Path = typer.Argument(..., help="Path to the CALITAS output file"),
         output_path: Path = typer.Argument(..., help="Path to the remapped output file"),
@@ -282,6 +282,13 @@ def calitas(
     df['min_gnomad_popmax_pop'] = min_gnomad_popmax_pop
 
     df.to_csv(output_path, sep=sep, index=False)
+
+@app.callback()
+def callback():
+    """
+    Remap DivRef coordinates to reference genome coordinates.
+    """
+    pass
 
 if __name__ == "__main__":
     app()
