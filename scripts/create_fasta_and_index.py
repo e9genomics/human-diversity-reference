@@ -19,9 +19,13 @@ def get_haplo_sequence(context_size, variants):
     min_pos = min_variant.locus.position
     max_pos = max_variant.locus.position
     max_variant_size = hl.len(max_variant.alleles[0])
-    full_context = hl.get_sequence(min_variant.locus.contig, min_pos, before=context_size,
-                                   after=(max_pos - min_pos + max_variant_size + context_size - 1),
-                                   reference_genome='GRCh38')
+    full_context = hl.get_sequence(
+        min_variant.locus.contig,
+        min_pos,
+        before=context_size,
+        after=(max_pos - min_pos + max_variant_size + context_size - 1),
+        reference_genome="GRCh38",
+    )
 
     # translate a locus position into an index in the string
     # (min_pos - index_translation) should equal context size
@@ -30,14 +34,20 @@ def get_haplo_sequence(context_size, variants):
     def get_chunk_until_next_variant(i):
         v = sorted_variants[i]
         variant_size = hl.len(v.alleles[0])
-        reference_buffer_size = hl.if_else(i == hl.len(sorted_variants) - 1,
-                                           context_size,
-                                           sorted_variants[i + 1].locus.position - (v.locus.position + variant_size))
+        reference_buffer_size = hl.if_else(
+            i == hl.len(sorted_variants) - 1,
+            context_size,
+            sorted_variants[i + 1].locus.position - (v.locus.position + variant_size),
+        )
         start = v.locus.position - index_translation + variant_size
-        return v.alleles[1] + full_context[start:start + reference_buffer_size]
+        return v.alleles[1] + full_context[start : start + reference_buffer_size]
 
-    return (full_context[:context_size] +
-            hl.delimit(hl.range(hl.len(sorted_variants)).map(lambda i: get_chunk_until_next_variant(i)), ''))
+    return full_context[:context_size] + hl.delimit(
+        hl.range(hl.len(sorted_variants)).map(
+            lambda i: get_chunk_until_next_variant(i)
+        ),
+        "",
+    )
 
 
 def variant_distance(v1, v2):
@@ -51,34 +61,50 @@ def split_haplotypes(ht, window_size):
     # generate indices where the distance between variants is greater than the window size
 
     breakpoints = hl.range(1, hl.len(ht.variants)).filter(
-        lambda i: (i == 0) | (variant_distance(ht.variants[i - 1], ht.variants[i]) >= window_size))
+        lambda i: (i == 0)
+        | (variant_distance(ht.variants[i - 1], ht.variants[i]) >= window_size)
+    )
 
     def get_range(i):
         start_index = hl.if_else(i == 0, 0, breakpoints[i - 1])
-        end_index = hl.if_else(i == hl.len(breakpoints), hl.len(ht.variants), breakpoints[i])
+        end_index = hl.if_else(
+            i == hl.len(breakpoints), hl.len(ht.variants), breakpoints[i]
+        )
         return hl.range(start_index, end_index)
 
-    split_hap_indices = hl.range(0, hl.len(breakpoints) + 1).map(get_range).filter(lambda r: hl.len(r) > 1)
+    split_hap_indices = (
+        hl.range(0, hl.len(breakpoints) + 1)
+        .map(get_range)
+        .filter(lambda r: hl.len(r) > 1)
+    )
     ht = ht.annotate(haplotype_indices=split_hap_indices)
-    ht = ht.explode('haplotype_indices')
+    ht = ht.explode("haplotype_indices")
     ht = ht.annotate(
         haplotype=ht.haplotype_indices.map(lambda i: ht.haplotype[i]),
         variants=ht.haplotype_indices.map(lambda i: ht.variants[i]),
         gnomad_freqs=ht.haplotype_indices.map(lambda i: ht.gnomad_freqs[i]),
     )
-    return ht.drop('haplotype_indices')
+    return ht.drop("haplotype_indices")
 
 
 @app.command()
 def main(
-        haplotypes_table_path: str = typer.Option(default=..., help="haplotypes table path"),
-        gnomad_va_file: str = typer.Option(default=..., help="gnomAD computed variant frequencies"),
-        reference_fasta: str = typer.Option(default=..., help="fasta path"),
-        window_size: int = typer.Option(default=..., help="Base window size"),
-        output_base: str = typer.Option(default=..., help="Output base path"),
-        merge: bool = typer.Option(default=False, help="Merge gnomad variants"),
-        frequency_cutoff: float = typer.Option(default=0.005, help="Frequency cutoff for gnomAD truncation"),
-        split_contigs: bool = typer.Option(default=False, help="Split contigs"),
+    haplotypes_table_path: str = typer.Option(
+        default=..., help="haplotypes table path"
+    ),
+    gnomad_va_file: str = typer.Option(
+        default=..., help="gnomAD computed variant frequencies"
+    ),
+    reference_fasta: str = typer.Option(default=..., help="fasta path"),
+    window_size: int = typer.Option(default=..., help="Base window size"),
+    output_base: str = typer.Option(default=..., help="Output base path"),
+    merge: bool = typer.Option(default=False, help="Merge gnomad variants"),
+    frequency_cutoff: float = typer.Option(
+        default=0.005, help="Frequency cutoff for gnomAD truncation"
+    ),
+    split_contigs: bool = typer.Option(default=False, help="Split contigs"),
+    version_str: str = typer.Option(default=..., help="Version string"),
+    tmp_dir: str = typer.Option(default="/tmp", help="Temporary directory"),
 ):
     """
     Process VCF files with gnomAD annotations and output filtered results.
@@ -93,34 +119,70 @@ def main(
     va.describe()
     ht.describe()
 
-    hl.get_reference('GRCh38').add_sequence(reference_fasta)
+    hl.get_reference("GRCh38").add_sequence(reference_fasta)
 
     ht.describe()
 
-    print(f'haplotype table contains {ht.count()} unique haplotypes above frequency threshold')
-    ht = split_haplotypes(ht, window_size)
-    ht = ht.key_by('haplotype').distinct().key_by().drop('haplotype')
-    ht = ht.annotate(source='HGDP_haplotype')
     print(
-        f'after splitting at window size {window_size}, haplotype table contains {ht.count()} unique haplotypes above frequency threshold')
+        f"haplotype table contains {ht.count()} unique haplotypes above frequency threshold"
+    )
+
+    fraction_phased = ht.max_empirical_AF / ht.min_variant_frequency
+    ht = ht.annotate(
+        fraction_phased=fraction_phased,
+        estimated_gnomad_AF=hl.min(
+            ht.gnomad_freqs.map(lambda x: x[ht.max_pop].AF * fraction_phased)
+        ),
+    )
+
+    ht = ht.filter(ht.estimated_gnomad_AF >= frequency_cutoff)
+    ht = ht.rename({"max_empirical_AN": "max_empirical_AC"})
+
+    ht = split_haplotypes(ht, window_size)
+    ht = ht.key_by("haplotype").distinct().key_by().drop("haplotype")
+    ht = ht.annotate(
+        source="HGDP_haplotype",
+        all_pop_freqs=ht.all_pop_freqs.map(
+            lambda x: hl.struct(
+                pop=x.pop, empirical_AC=x.empirical_AN, empirical_AF=x.empirical_AF
+            )
+        ),
+    )
+    print(
+        f"after splitting at window size {window_size}, haplotype table contains {ht.count()} unique haplotypes above frequency threshold"
+    )
 
     # now add in gnomAD variants if merging
     if merge:
-        va = va.rename({'pop_freqs': 'gnomad_freqs'})
+        va = va.rename({"pop_freqs": "gnomad_freqs"})
         va = va.key_by()
-        va = va.select(max_pop=hl.argmax(va.gnomad_freqs.map(lambda x: hl.max(x.AF))),
-                       max_pop_freq=hl.max(va.gnomad_freqs.map(lambda x: hl.max(x.AF))),
-                       max_pop_observed=hl.max(va.gnomad_freqs.map(lambda x: hl.max(x.AF))),
-                       all_pop_freqs=hl.range(hl.len(va.gnomad_freqs)).map(lambda i: hl.struct(
-                           pop=i,
-                           observed=va.gnomad_freqs[i].AC,
-                           frequency=va.gnomad_freqs[i].AF,
-                       )),
-                       source='gnomAD_variant',
-                       variants=[hl.struct(locus=va.locus, alleles=va.alleles)],
-                       gnomad_freqs=[va.gnomad_freqs])
-        va = va.filter(va.max_pop_freq >= frequency_cutoff)
+        argmax_pop = hl.argmax(va.gnomad_freqs.map(lambda x: hl.max(x.AF)))
+        va = va.select(
+            max_pop=argmax_pop,
+            max_empirical_AF=va.gnomad_freqs[argmax_pop].AF,
+            fraction_phased=1.0,
+            estimated_gnomad_AF=va.gnomad_freqs[argmax_pop].AF,
+            max_empirical_AC=va.gnomad_freqs[argmax_pop].AC,
+            all_pop_freqs=hl.range(hl.len(va.gnomad_freqs)).map(
+                lambda i: hl.struct(
+                    pop=i,
+                    empirical_AC=va.gnomad_freqs[i].AC,
+                    empirical_AF=va.gnomad_freqs[i].AF,
+                )
+            ),
+            source="gnomAD_variant",
+            variants=[hl.struct(locus=va.locus, alleles=va.alleles)],
+            gnomad_freqs=[va.gnomad_freqs],
+        )
+        va = va.filter(va.max_empirical_AF >= frequency_cutoff)
         ht = ht.union(va, unify=True)
+
+    ht = ht.rename(
+        {
+            "max_empirical_AF": "popmax_empirical_AF",
+            "max_empirical_AC": "popmax_empirical_AC",
+        }
+    )
 
     ht.describe()
 
@@ -128,60 +190,74 @@ def main(
     ht = ht.annotate(sequence=get_haplo_sequence(window_size, ht.variants))
     ht = ht.annotate(variant_strs=ht.variants.map(lambda x: hl.variant_str(x)))
 
-    ht = ht.annotate(sequence_length=hl.len(ht.sequence),
-                     sequence_id=ht.idx,
-                     n_variants=hl.len(ht.variants),
-                     ).drop('idx')
+    ht = ht.annotate(
+        sequence_length=hl.len(ht.sequence),
+        sequence_id=hl.str(f"DR-{version_str}-") + hl.str(ht.idx),
+        n_variants=hl.len(ht.variants),
+    ).drop("idx")
 
-    file_suffix = '.haplotypes' if not merge else '.haplotypes_gnomad_merge'
+    file_suffix = ".haplotypes" if not merge else ".haplotypes_gnomad_merge"
 
-    ht = ht.checkpoint('/tmp/' + f'{file_suffix}.ht', overwrite=True)
+    ht = ht.checkpoint(os.path.join(tmp_dir, f"{file_suffix}.ht"), overwrite=True)
 
-    ht.select('sequence',
-              'sequence_length',
-              'sequence_id',
-              'n_variants',
-              'max_pop_freq',
-              'max_pop_observed',
-              hgdp_max_pop=hl.literal(pops_legend)[ht.max_pop],
-              variants=hl.delimit(ht.variant_strs, ','),
-              **{f'gnomAD_AF_{pop}': hl.delimit(
-                  ht.gnomad_freqs.map(lambda x: hl.format("%.5f", x[i].AF)),
-                  ','
-              ) for i, pop in enumerate(pops_legend)}
-              ).export(output_base + f'{file_suffix}.tsv.bgz')
+    ht.select(
+        "sequence",
+        "sequence_length",
+        "sequence_id",
+        "n_variants",
+        "popmax_empirical_AF",
+        "popmax_empirical_AC",
+        "estimated_gnomad_AF",
+        "fraction_phased",
+        "source",
+        max_pop=hl.literal(pops_legend)[ht.max_pop],
+        variants=hl.delimit(ht.variant_strs, ","),
+        **{
+            f"gnomAD_AF_{pop}": hl.delimit(
+                ht.gnomad_freqs.map(lambda x: hl.format("%.5f", x[i].AF)), ","
+            )
+            for i, pop in enumerate(pops_legend)
+        },
+    ).export(output_base + f"{file_suffix}.tsv.bgz")
 
-    df = polars.read_csv(output_base + f'{file_suffix}.tsv.bgz', separator='\t',
-                         schema_overrides={'sequence_id': polars.String})
+    df = polars.read_csv(
+        output_base + f"{file_suffix}.tsv.bgz",
+        separator="\t",
+        schema_overrides={"sequence_id": polars.String},
+    )
     if split_contigs:
-        df = df.with_columns(contig=df['variants'].str.split(':').list.get(0))
+        df = df.with_columns(contig=df["variants"].str.split(":").list.get(0))
 
-        for chr in df['contig'].unique().to_list():
+        for chr in df["contig"].unique().to_list():
+            typer.echo("creating FASTA for chromosome " + chr)
+            df2 = df.filter(df["contig"] == chr)
 
-            typer.echo('creating FASTA for chromosome ' + chr)
-            df2 = df.filter(df['contig'] == chr)
-
-            with open(output_base + f'{file_suffix}.{chr}.fasta', 'w') as f:
-                for sequence, sequence_id in df2.select('sequence', 'sequence_id').iter_rows():
-                    f.write(f'>{sequence_id}\n{sequence}\n')
+            with open(output_base + f"{file_suffix}.{chr}.fasta", "w") as f:
+                for sequence, sequence_id in df2.select(
+                    "sequence", "sequence_id"
+                ).iter_rows():
+                    f.write(f">{sequence_id}\n{sequence}\n")
     else:
-        typer.echo('creating FASTA')
-        with open(output_base + f'{file_suffix}.fasta', 'w') as f:
-            for sequence, sequence_id in df.select('sequence', 'sequence_id').iter_rows():
-                f.write(f'>{sequence_id}\n{sequence}\n')
+        typer.echo("creating FASTA")
+        with open(output_base + f"{file_suffix}.fasta", "w") as f:
+            for sequence, sequence_id in df.select(
+                "sequence", "sequence_id"
+            ).iter_rows():
+                f.write(f">{sequence_id}\n{sequence}\n")
 
-    duckdb_file = output_base + f'{file_suffix}.index.duckdb'
+    duckdb_file = output_base + f"{file_suffix}.index.duckdb"
     if os.path.exists(duckdb_file):
         os.remove(duckdb_file)
-    con = duckdb.connect(output_base + f'{file_suffix}.index.duckdb')
-    con.execute("CREATE TABLE haplotypes AS SELECT * FROM df")
-    con.execute("CREATE INDEX idx_sequence_id ON haplotypes(sequence_id)")
+    con = duckdb.connect(output_base + f"{file_suffix}.index.duckdb")
+    con.execute("CREATE TABLE sequences AS SELECT * FROM df")
+    con.execute("CREATE INDEX idx_sequence_id ON sequences(sequence_id)")
 
     # create a single window_size value
     con.execute(f"CREATE TABLE window_size AS SELECT {window_size} AS window_size")
 
     # create a single pops legend value with the list of population identifiers in order
     con.execute(f"CREATE TABLE pops_legend AS SELECT {pops_legend} AS pops_legend")
+    con.execute(f"CREATE TABLE VERSION AS SELECT {version_str} AS version")
 
     con.close()
 

@@ -16,7 +16,7 @@ reference sequences as FASTA files.
 The haplotype-only version of the resource contains 1,795,661 sequences overlapping 2+ variants.
 The gnomAD + HGDP merge contains 36,343,619 sequences including single variants and haplotypes.
 
-For documentation on using the bundled distributed on Zenodo, see [the bundle README](./bundle/README.md).
+For documentation on using the bundled distributed on Zenodo, including a changelog, see [the bundle README](./bundle/README.md).
 
 ---
 

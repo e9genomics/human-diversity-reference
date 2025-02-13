@@ -3,7 +3,7 @@ PHASED_HGDP_GVCF_PATHS='gs://gcp-public-data--gnomad/resources/hgdp_1kg/phased_h
 bcftools?=~/bcftools/bin/bcftools
 samtools?=~/samtools/bin/samtools
 
-VERSION=1.0
+VERSION=1.1
 
 # requires `uv`
 .PHONY: sync
@@ -69,12 +69,24 @@ run-haplotype-computation:
 	@echo "Running haplotype computation..."
 	@mkdir -p data/haplotypes/
 	uv run scripts/compute_haplotypes.py \
-		--vcfs-path "./data/vcf/*.vcf.bgz" \
+		--vcfs-path "./data/vcf/*chr21*.vcf.bgz" \
 		--gnomad-va-file ./data/gnomad/$(gnomad_af_base) \
 		--gnomad-sa-file ./data/gnomad/$(gnomad_pop_base) \
 		--window-size 100 \
 		--freq-threshold 0.005 \
 		--output-base ./data/haplotypes/hgdp_gnomad_merge
+
+.PHONY: gcp-haplotype-computation
+gcp-haplotype-computation:
+	@echo "Running haplotype computation..."
+	hailctl dataproc submit haplo1 scripts/compute_haplotypes.py \
+		--temp-dir "$(GCP_TEMP_BUCKET)" \
+		--vcfs-path "$(GCP_DIVREF_BUCKET)/hgdp/vcf/"*".vcf.bgz" \
+		--gnomad-va-file "$(GCP_DIVREF_BUCKET)/$(gnomad_af_base)" \
+		--gnomad-sa-file "$(GCP_DIVREF_BUCKET)/$(gnomad_pop_base)" \
+		--window-size 100 \
+		--freq-threshold 0.005 \
+		--output-base "$(GCP_DIVREF_BUCKET)/hgdp/haplotypes/hgdp_gnomad_merge"
 
 .PHONY: download-reference-fasta
 download-reference-fasta:
@@ -92,6 +104,7 @@ generate-divref:
 		--gnomad-va-file ./data/gnomad/$(gnomad_af_base) \
 		--reference-fasta ./data/reference/Homo_sapiens_assembly38.fasta.gz \
 		--window-size 25 \
+		--version-str "$(VERSION)" \
 		--output-base ./data/divref/DivRef-v$(VERSION)
 	rm ./data/divref/.*.crc
 
@@ -106,6 +119,7 @@ generate-merged-divref:
 		--gnomad-va-file ./data/gnomad/$(gnomad_af_base) \
 		--reference-fasta ./data/reference/Homo_sapiens_assembly38.fasta.gz \
 		--window-size 25 \
+		--version-str "$(VERSION)" \
 		--output-base ./data/divref-merged/DivRef-v$(VERSION) \
 		--merge --split-contigs
 	rm ./data/divref-merged/.*.crc
@@ -147,12 +161,11 @@ bundle:
 	mkdir -p dist/staging
 	cp README.md dist/staging/
 	cp LICENSE dist/staging/
-	cp Citation.cff dist/staging
 	cp bundle/* dist/staging
-	cp -r ./data/divref-merged dist/staging/DivRef
-	cp scripts/remap_divref.py dist/staging/DivRef
-	cp -r ./data/divref dist/staging/DivRef_just_haplotypes
-	cp scripts/remap_divref.py dist/staging/DivRef_just_haplotypes
+	cp -r ./data/divref-merged/* dist/staging/
+	cp scripts/remap_divref.py dist/staging/
+	cp -r ./data/divref/*.fasta dist/staging/
+	cp -r ./data/divref/*.tsv.bgz dist/staging/
 
 .PHONY: run-frequency-calc
 run-frequency-calc:
